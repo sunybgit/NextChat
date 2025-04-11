@@ -17,6 +17,7 @@ import ReloadIcon from "../icons/reload.svg";
 import GithubIcon from "../icons/github.svg";
 
 import { Plugin, usePluginStore, FunctionToolService } from "../store/plugin";
+import { useChatStore } from "../store/chat";
 import {
   PasswordInput,
   List,
@@ -67,9 +68,10 @@ export function PluginPage() {
         .init()
         .then(() => {
           if (content != editingPlugin.content) {
+            const sessionId = useChatStore.getState().currentSession().id;
             pluginStore.updatePlugin(editingPlugin.id, (plugin) => {
               plugin.content = content;
-              const tool = FunctionToolService.add(plugin, true);
+              const tool = FunctionToolService.add(plugin, true, sessionId);
               plugin.title = tool.api.definition.info.title;
               plugin.version = tool.api.definition.info.version;
             });
@@ -105,9 +107,10 @@ export function PluginPage() {
         }
       })
       .then((content) => {
+        const sessionId = useChatStore.getState().currentSession().id;
         pluginStore.updatePlugin(editingPlugin.id, (plugin) => {
           plugin.content = content;
-          const tool = FunctionToolService.add(plugin, true);
+          const tool = FunctionToolService.add(plugin, true, sessionId);
           plugin.title = tool.api.definition.info.title;
           plugin.version = tool.api.definition.info.version;
         });
@@ -202,7 +205,7 @@ export function PluginPage() {
                     </div>
                     <div className={clsx(styles["mask-info"], "one-line")}>
                       {Locale.Plugin.Item.Info(
-                        FunctionToolService.add(m).length,
+                        FunctionToolService.add(m, false, useChatStore.getState().currentSession().id).length,
                       )}
                     </div>
                   </div>
