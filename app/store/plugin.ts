@@ -6,6 +6,7 @@ import { getClientConfig } from "../config/client";
 import yaml from "js-yaml";
 import { adapter, getOperationId } from "../utils";
 import { useAccessStore } from "./access";
+import { useChatStore } from "../store/chat";
 
 const isApp = getClientConfig()?.isApp !== false;
 
@@ -40,7 +41,7 @@ type FunctionToolServiceItem = {
 
 export const FunctionToolService = {
   tools: {} as Record<string, FunctionToolServiceItem>,
-  add(plugin: Plugin, replace = false) {
+  add(plugin: Plugin, replace = false, sessionId?: string) {
     if (!replace && this.tools[plugin.id]) return this.tools[plugin.id];
     const headerName = (
       plugin?.authType == "custom" ? plugin?.authHeader : "Authorization"
@@ -57,6 +58,7 @@ export const FunctionToolService = {
     const baseURL = !isApp ? "/api/proxy" : serverURL;
     const headers: Record<string, string | undefined> = {
       "X-Base-URL": !isApp ? serverURL : undefined,
+      "X-Session-ID": sessionId,
     };
     if (authLocation == "header") {
       headers[headerName] = tokenValue;
@@ -78,7 +80,7 @@ export const FunctionToolService = {
     });
     try {
       api.initSync();
-    } catch (e) {}
+    } catch (e) {}·
     const operations = api.getOperations();
     return (this.tools[plugin.id] = {
       api,
@@ -139,6 +141,14 @@ export const FunctionToolService = {
           } else if (authLocation == "body") {
             args[headerName] = tokenValue;
           }
+          // 添加会话ID到请求参数中
+          if (sessionId) {
+            if (authLocation == "query") {
+              parameters["sessionId"] = sessionId;
+            } else if (authLocation == "body") {
+              args["sessionId"] = sessionId;
+            }
+          }
           // @ts-ignore if o.operationId is null, then using o.path and o.method
           return api.client.paths[o.path][o.method](
             parameters,
@@ -195,7 +205,8 @@ export const usePluginStore = createPersistStore(
       const updatePlugin = { ...plugin };
       updater(updatePlugin);
       plugins[id] = updatePlugin;
-      FunctionToolService.add(updatePlugin, true);
+      const sessionId = useChatStore.getState().currentSession().id;
+      FunctionToolService.add(updatePlugin, true, sessionId);
       set(() => ({ plugins }));
       get().markUpdate();
     },
@@ -208,10 +219,11 @@ export const usePluginStore = createPersistStore(
 
     getAsTools(ids: string[]) {
       const plugins = get().plugins;
+      const sessionId = useChatStore.getState().currentSession().id;
       const selected = (ids || [])
         .map((id) => plugins[id])
         .filter((i) => i)
-        .map((p) => FunctionToolService.add(p));
+        .map((p) => FunctionToolService.add(p, false, sessionId));
       return [
         // @ts-ignore
         selected.reduce((s, i) => s.concat(i.tools), []),
@@ -258,7 +270,8 @@ export const usePluginStore = createPersistStore(
               .forEach((item: any) => {
                 const plugin = state.create(item);
                 state.updatePlugin(plugin.id, (plugin) => {
-                  const tool = FunctionToolService.add(plugin, true);
+                  const sessionId = useChatStore.getState().currentSession().id;
+                  const tool = FunctionToolService.add(plugin, true, sessionId);
                   plugin.title = tool.api.definition.info.title;
                   plugin.version = tool.api.definition.info.version;
                   plugin.builtin = true;
