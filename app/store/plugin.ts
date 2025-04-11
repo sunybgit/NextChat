@@ -7,6 +7,7 @@ import yaml from "js-yaml";
 import { adapter, getOperationId } from "../utils";
 import { useAccessStore } from "./access";
 import { useChatStore } from "../store/chat";
+import { Operation, ParameterObject, RequestBodyObject } from "openapi-client-axios/dist/types";
 
 const isApp = getClientConfig()?.isApp !== false;
 
@@ -88,7 +89,7 @@ export const FunctionToolService = {
     return (this.tools[plugin.id] = {
       api,
       length: operations.length,
-      tools: operations.map((o) => {
+      tools: operations.map((o: Operation) => {
         // @ts-ignore
         const parameters = o?.requestBody?.content["application/json"]
           ?.schema || {
@@ -99,7 +100,7 @@ export const FunctionToolService = {
           parameters["required"] = [];
         }
         if (o.parameters instanceof Array) {
-          o.parameters.forEach((p) => {
+          o.parameters.forEach((p: ParameterObject) => {
             // @ts-ignore
             if (p?.in == "query" || p?.in == "path") {
               // const name = `${p.in}__${p.name}`
@@ -153,8 +154,9 @@ export const FunctionToolService = {
               "X-Session-ID": sessionId,
             };
             // 添加到请求体中的 content schema properties
-            if (o.requestBody?.content?.["application/json"]?.schema) {
-              const schema = o.requestBody.content["application/json"].schema;
+            const requestBody = o.requestBody as any;
+            if (requestBody?.content?.["application/json"]?.schema) {
+              const schema = requestBody.content["application/json"].schema;
               if (!schema.properties) {
                 schema.properties = {};
               }
@@ -163,7 +165,7 @@ export const FunctionToolService = {
               }
               schema.properties["sessionId"] = {
                 type: "string",
-                description: "Current Chat sessionId",
+                description: "Current Session ID",
               };
               if (!schema.required.includes("sessionId")) {
                 schema.required.push("sessionId");
