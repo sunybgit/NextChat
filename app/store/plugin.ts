@@ -6,8 +6,6 @@ import { getClientConfig } from "../config/client";
 import yaml from "js-yaml";
 import { adapter, getOperationId } from "../utils";
 import { useAccessStore } from "./access";
-import { useChatStore } from "../store/chat";
-import { Operation, ParameterObject, RequestBodyObject } from "openapi-client-axios/dist/types";
 
 const isApp = getClientConfig()?.isApp !== false;
 
@@ -42,7 +40,7 @@ type FunctionToolServiceItem = {
 
 export const FunctionToolService = {
   tools: {} as Record<string, FunctionToolServiceItem>,
-  add(plugin: Plugin, replace = false, sessionId?: string) {
+  add(plugin: Plugin, replace = false) {
     if (!replace && this.tools[plugin.id]) return this.tools[plugin.id];
     const headerName = (
       plugin?.authType == "custom" ? plugin?.authHeader : "Authorization"
@@ -59,7 +57,6 @@ export const FunctionToolService = {
     const baseURL = !isApp ? "/api/proxy" : serverURL;
     const headers: Record<string, string | undefined> = {
       "X-Base-URL": !isApp ? serverURL : undefined,
-      "X-Session-ID": sessionId,
     };
     if (authLocation == "header") {
       headers[headerName] = tokenValue;
@@ -76,10 +73,7 @@ export const FunctionToolService = {
       axiosConfigDefaults: {
         adapter: (window.__TAURI__ ? adapter : ["xhr"]) as any,
         baseURL,
-        headers: {
-          ...headers,
-          "X-Session-ID": sessionId,
-        },
+        headers,
       },
     });
     try {
@@ -89,7 +83,7 @@ export const FunctionToolService = {
     return (this.tools[plugin.id] = {
       api,
       length: operations.length,
-      tools: operations.map((o: Operation) => {
+      tools: operations.map((o) => {
         // @ts-ignore
         const parameters = o?.requestBody?.content["application/json"]
           ?.schema || {
@@ -100,7 +94,7 @@ export const FunctionToolService = {
           parameters["required"] = [];
         }
         if (o.parameters instanceof Array) {
-          o.parameters.forEach((p: ParameterObject) => {
+          o.parameters.forEach((p) => {
             // @ts-ignore
             if (p?.in == "query" || p?.in == "path") {
               // const name = `${p.in}__${p.name}`
@@ -144,34 +138,6 @@ export const FunctionToolService = {
             parameters[headerName] = tokenValue;
           } else if (authLocation == "body") {
             args[headerName] = tokenValue;
-          }
-          // 添加会话ID到请求参数中
-          if (sessionId) {
-            // 确保会话ID在请求头中
-            const currentHeaders = api.axiosConfigDefaults.headers || {};
-            api.axiosConfigDefaults.headers = {
-              ...currentHeaders,
-              "X-Session-ID": sessionId,
-            };
-            // 添加到请求体中的 content schema properties
-            const requestBody = o.requestBody as any;
-            if (requestBody?.content?.["application/json"]?.schema) {
-              const schema = requestBody.content["application/json"].schema;
-              if (!schema.properties) {
-                schema.properties = {};
-              }
-              if (!schema.required) {
-                schema.required = [];
-              }
-              schema.properties["sessionId"] = {
-                type: "string",
-                description: "Current Session ID",
-              };
-              if (!schema.required.includes("sessionId")) {
-                schema.required.push("sessionId");
-              }
-              args["sessionId"] = sessionId;
-            }
           }
           // @ts-ignore if o.operationId is null, then using o.path and o.method
           return api.client.paths[o.path][o.method](
@@ -229,8 +195,7 @@ export const usePluginStore = createPersistStore(
       const updatePlugin = { ...plugin };
       updater(updatePlugin);
       plugins[id] = updatePlugin;
-      const sessionId = useChatStore.getState().currentSession().id;
-      FunctionToolService.add(updatePlugin, true, sessionId);
+      FunctionToolService.add(updatePlugin, true);
       set(() => ({ plugins }));
       get().markUpdate();
     },
@@ -243,11 +208,10 @@ export const usePluginStore = createPersistStore(
 
     getAsTools(ids: string[]) {
       const plugins = get().plugins;
-      const sessionId = useChatStore.getState().currentSession().id;
       const selected = (ids || [])
         .map((id) => plugins[id])
         .filter((i) => i)
-        .map((p) => FunctionToolService.add(p, false, sessionId));
+        .map((p) => FunctionToolService.add(p));
       return [
         // @ts-ignore
         selected.reduce((s, i) => s.concat(i.tools), []),
@@ -294,8 +258,7 @@ export const usePluginStore = createPersistStore(
               .forEach((item: any) => {
                 const plugin = state.create(item);
                 state.updatePlugin(plugin.id, (plugin) => {
-                  const sessionId = useChatStore.getState().currentSession().id;
-                  const tool = FunctionToolService.add(plugin, true, sessionId);
+                  const tool = FunctionToolService.add(plugin, true);
                   plugin.title = tool.api.definition.info.title;
                   plugin.version = tool.api.definition.info.version;
                   plugin.builtin = true;
