@@ -75,7 +75,10 @@ export const FunctionToolService = {
       axiosConfigDefaults: {
         adapter: (window.__TAURI__ ? adapter : ["xhr"]) as any,
         baseURL,
-        headers,
+        headers: {
+          ...headers,
+          "X-Session-ID": sessionId,
+        },
       },
     });
     try {
@@ -144,10 +147,29 @@ export const FunctionToolService = {
           // 添加会话ID到请求参数中
           if (sessionId) {
             // 确保会话ID在请求头中
+            const currentHeaders = api.axiosConfigDefaults.headers || {};
             api.axiosConfigDefaults.headers = {
-              ...api.axiosConfigDefaults.headers,
+              ...currentHeaders,
               "X-Session-ID": sessionId,
             };
+            // 添加到请求体中的 content schema properties
+            if (o.requestBody?.content?.["application/json"]?.schema) {
+              const schema = o.requestBody.content["application/json"].schema;
+              if (!schema.properties) {
+                schema.properties = {};
+              }
+              if (!schema.required) {
+                schema.required = [];
+              }
+              schema.properties["sessionId"] = {
+                type: "string",
+                description: "当前会话ID",
+              };
+              if (!schema.required.includes("sessionId")) {
+                schema.required.push("sessionId");
+              }
+              args["sessionId"] = sessionId;
+            }
           }
           // @ts-ignore if o.operationId is null, then using o.path and o.method
           return api.client.paths[o.path][o.method](
