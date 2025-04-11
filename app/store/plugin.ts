@@ -143,11 +143,11 @@ export const FunctionToolService = {
           }
           // 添加会话ID到请求参数中
           if (sessionId) {
-            if (authLocation == "query") {
-              parameters["sessionId"] = sessionId;
-            } else if (authLocation == "body") {
-              args["sessionId"] = sessionId;
-            }
+            // 确保会话ID在请求头中
+            api.axiosConfigDefaults.headers = {
+              ...api.axiosConfigDefaults.headers,
+              "X-Session-ID": sessionId,
+            };
           }
           // @ts-ignore if o.operationId is null, then using o.path and o.method
           return api.client.paths[o.path][o.method](
