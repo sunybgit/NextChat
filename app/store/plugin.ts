@@ -94,7 +94,7 @@ export const FunctionToolService = {
         if (!parameters["required"]) {
           parameters["required"] = [];
         }
-        // add sessionId to parameters
+        // add sessionId to parameters by syb
         parameters["properties"]["sessionId"] = {
           type: "string",
           description: "current session id",
