@@ -80,7 +80,7 @@ export const FunctionToolService = {
     });
     try {
       api.initSync();
-    } catch (e) {}·
+    } catch (e) {}
     const operations = api.getOperations();
     return (this.tools[plugin.id] = {
       api,
