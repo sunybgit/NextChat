@@ -163,7 +163,7 @@ export const FunctionToolService = {
               }
               schema.properties["sessionId"] = {
                 type: "string",
-                description: "当前会话ID",
+                description: "Current Chat sessionId",
               };
               if (!schema.required.includes("sessionId")) {
                 schema.required.push("sessionId");
