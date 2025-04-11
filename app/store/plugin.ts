@@ -6,6 +6,7 @@ import { getClientConfig } from "../config/client";
 import yaml from "js-yaml";
 import { adapter, getOperationId } from "../utils";
 import { useAccessStore } from "./access";
+import { useChatStore } from "./chat";
 
 const isApp = getClientConfig()?.isApp !== false;
 
@@ -93,6 +94,12 @@ export const FunctionToolService = {
         if (!parameters["required"]) {
           parameters["required"] = [];
         }
+        // add sessionId to parameters
+        parameters["properties"]["sessionId"] = {
+          type: "string",
+          description: "current session id",
+        };
+        parameters["required"].push("sessionId");
         if (o.parameters instanceof Array) {
           o.parameters.forEach((p) => {
             // @ts-ignore
@@ -139,6 +146,9 @@ export const FunctionToolService = {
           } else if (authLocation == "body") {
             args[headerName] = tokenValue;
           }
+          // add current sessionId
+          const currentSession = useChatStore.getState().currentSession();
+          args.sessionId = currentSession.id;
           // @ts-ignore if o.operationId is null, then using o.path and o.method
           return api.client.paths[o.path][o.method](
             parameters,
